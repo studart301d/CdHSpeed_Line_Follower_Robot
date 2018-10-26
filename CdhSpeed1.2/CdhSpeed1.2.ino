@@ -21,6 +21,7 @@ Sensor Array   Error Value
 */
 
 int mode;
+int pushButton = 13;
 /*#################### SENSORS SETUP ####################*/
 int SensorMatrix[5] = {0,0,0,0,0}; //Sensor matrix for measuring the IR sensor 
 int LFsensor0 = 2;
@@ -54,10 +55,13 @@ void motorPIDControl();
 void readLFsensor();
 void calculatePID();
 void motorForward();
+void motorStop();
 /*#################### Button Control ####################*/
-int timeControl = 5000;
-int timeMillis;
-int codeControl = 0;
+int state = LOW;
+int readBtt;
+int before = HIGH;
+int timer  = 0;
+int debounce = 200;
 
 void setup() {
   // put your setup code here, to run once:
@@ -73,23 +77,41 @@ void setup() {
   pinMode (motorRIGHT_1, OUTPUT);
   pinMode (motorRIGHT_1, OUTPUT);
 
-  pinMode(13, INPUT);//button
+  pinMode(pushButton, INPUT_PULLUP);//button
+  Serial.begin(9600);
 }
 
 void loop() {
-    readLFsensor();
-    switch(mode){
-      case FOLLOWING_LINE:
-        calculatePID();
-        motorPIDControl();
-      break;
-      case CROSSING_LINE:
-        motorForward();
-        previousError = 0; //Dunno
-      case NO_LINE:
-        motorForward();
-        previousError = 0; //Dunno
+    readBtt = digitalRead(pushButton);
+    if((readBtt == HIGH) && (before == LOW )&&  (millis() - timer > debounce)){
+      if(state == HIGH){
+          state =  LOW;        
+      }
+      else{
+          state = HIGH; 
+      }      
+      timer = millis();  
     }
+    if(state){
+          readLFsensor();  
+          switch(mode){
+            case FOLLOWING_LINE:
+              calculatePID();
+              motorPIDControl();
+            break;
+            case CROSSING_LINE:
+              motorForward();
+              previousError = 0; //Dunno
+            case NO_LINE:
+              motorForward();
+              previousError = 0; //Dunno
+          }
+          Serial.println("Deu certo");
+    }else{
+        motorStop();
+          Serial.println("N deu certo");
+    }
+    before = readBtt;
 }
 
 
@@ -160,7 +182,13 @@ void readLFsensor(){
       error = 0;
   }
 }
+void motorStop(){
+  analogWrite(motorLEFT_1, 0);
+  analogWrite(motorLEFT_0, 0);
 
+  analogWrite(motorRIGHT_1, 0);
+  analogWrite(motorRIGHT_0, 0);
+}
 void calculatePID(){
   P = error;
   I = I + error;
